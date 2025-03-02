@@ -69,3 +69,38 @@ BLEDescriptor bmeTemperatureFahrenheitDescriptor(BLEUUID((uint16_t)0x2902));
 // Humidity Characteristic and Descriptor
 BLECharacteristic bmeHumidityCharacteristics("ca73b3ba-39f6-4ab3-91ae-186dc9577d99", BLECharacteristic::PROPERTY_NOTIFY);
 BLEDescriptor bmeHumidityDescriptor(BLEUUID((uint16_t)0x2903));
+
+
+//Setup callbacks onConnect and onDisconnect
+class MyServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        deviceConnected = true;
+    };
+    void onDisconnect(BLEServer* pServer) {
+        deviceConnected = false;
+    }
+};
+
+void initBME() {
+    if (!bme.begin(0x76)) {
+        Serial.println("Could not find a valid BME280 sensor, check wiring!");
+        while (1);
+    }
+}
+
+void setup() {
+    // Start serial communication 
+    Serial.begin(115200);
+
+    // Init BME Sensor
+    initBME();
+
+    // Create the BLE Device
+    BLEDevice::init(bleServerName);
+
+    // Create the BLE Server
+    BLEServer* pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+
+    // Create the BLE Service
+    BLEService* bmeService = pServer->createService(SERVICE_UUID);
