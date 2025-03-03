@@ -104,3 +104,30 @@ void setup() {
 
     // Create the BLE Service
     BLEService* bmeService = pServer->createService(SERVICE_UUID);
+
+    // Create BLE Characteristics and Create a BLE Descriptor
+  // Temperature
+#ifdef temperatureCelsius
+    bmeService->addCharacteristic(&bmeTemperatureCelsiusCharacteristics);
+    bmeTemperatureCelsiusDescriptor.setValue("BME temperature Celsius");
+    bmeTemperatureCelsiusCharacteristics.addDescriptor(&bmeTemperatureCelsiusDescriptor);
+#else
+    bmeService->addCharacteristic(&bmeTemperatureFahrenheitCharacteristics);
+    bmeTemperatureFahrenheitDescriptor.setValue("BME temperature Fahrenheit");
+    bmeTemperatureFahrenheitCharacteristics.addDescriptor(&bmeTemperatureFahrenheitDescriptor);
+#endif  
+
+    // Humidity
+    bmeService->addCharacteristic(&bmeHumidityCharacteristics);
+    bmeHumidityDescriptor.setValue("BME humidity");
+    bmeHumidityCharacteristics.addDescriptor(new BLE2902());
+
+    // Start the service
+    bmeService->start();
+
+    // Start advertising
+    BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pServer->getAdvertising()->start();
+    Serial.println("Waiting a client connection to notify...");
+}
