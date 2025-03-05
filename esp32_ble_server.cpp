@@ -1,4 +1,4 @@
-/*
+﻿/*
 https://randomnerdtutorials.com/esp32-ble-server-client/
 
 BLE Server that advertises a service that contains two characteristics: 
@@ -6,7 +6,7 @@ one for temperature and another for humidity.
 Those characteristics have the Notify property 
 to notify new values to the client.
 
-We�ll advertise sensor readings from a BME280 sensor. 
+We’ll advertise sensor readings from a BME280 sensor. 
 So, you need to install the libraries to interface with the BME280 sensor
 
 -Adafruit_BME280 library
@@ -15,7 +15,7 @@ So, you need to install the libraries to interface with the BME280 sensor
 You can install the libraries using the Arduino Library Manager. 
 Go to Sketch > Include Library > Manage Libraries and search for the library name
 
-If you�re using VS Code with the PlatformIO extension, 
+If you’re using VS Code with the PlatformIO extension, 
 copy the following to the platformio.ini file to include the libraries:
 
 lib_deps = adafruit/Adafruit Unified Sensor @ ^1.1.4
@@ -23,7 +23,7 @@ lib_deps = adafruit/Adafruit Unified Sensor @ ^1.1.4
 
 With the circuit ready and the required libraries installed, 
 copy the following code to the Arduino IDE, 
-or to the main.cpp file if you�re using VS Code
+or to the main.cpp file if you’re using VS Code
 */
 
 #include <BLEDevice.h>
@@ -130,4 +130,50 @@ void setup() {
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pServer->getAdvertising()->start();
     Serial.println("Waiting a client connection to notify...");
+}
+
+void loop() {
+    if (deviceConnected) {
+        if ((millis() - lastTime) > timerDelay) {
+            // Read temperature as Celsius (the default)
+            temp = bme.readTemperature();
+            // Fahrenheit
+            tempF = 1.8 * temp + 32;
+            // Read humidity
+            hum = bme.readHumidity();
+
+            //Notify temperature reading from BME sensor
+#ifdef temperatureCelsius
+            static char temperatureCTemp[6];
+            dtostrf(temp, 6, 2, temperatureCTemp);
+            //Set temperature Characteristic value and notify connected client
+            bmeTemperatureCelsiusCharacteristics.setValue(temperatureCTemp);
+            bmeTemperatureCelsiusCharacteristics.notify();
+            Serial.print("Temperature Celsius: ");
+            Serial.print(temp);
+            Serial.print(" ºC");
+#else
+            static char temperatureFTemp[6];
+            dtostrf(tempF, 6, 2, temperatureFTemp);
+            //Set temperature Characteristic value and notify connected client
+            bmeTemperatureFahrenheitCharacteristics.setValue(temperatureFTemp);
+            bmeTemperatureFahrenheitCharacteristics.notify();
+            Serial.print("Temperature Fahrenheit: ");
+            Serial.print(tempF);
+            Serial.print(" ºF");
+#endif
+
+            //Notify humidity reading from BME
+            static char humidityTemp[6];
+            dtostrf(hum, 6, 2, humidityTemp);
+            //Set humidity Characteristic value and notify connected client
+            bmeHumidityCharacteristics.setValue(humidityTemp);
+            bmeHumidityCharacteristics.notify();
+            Serial.print(" - Humidity: ");
+            Serial.print(hum);
+            Serial.println(" %");
+
+            lastTime = millis();
+        }
+    }
 }
