@@ -54,3 +54,119 @@ char* humidityChar;
 //Flags to check whether new temperature and humidity readings are available
 boolean newTemperature = false;
 boolean newHumidity = false;
+
+//Connect to the BLE Server that has the name, Service, and Characteristics
+bool connectToServer(BLEAddress pAddress) {
+    BLEClient* pClient = BLEDevice::createClient();
+
+    // Connect to the remove BLE Server.
+    pClient->connect(pAddress);
+    Serial.println(" - Connected to server");
+
+    // Obtain a reference to the service we are after in the remote BLE server.
+    BLERemoteService* pRemoteService = pClient->getService(bmeServiceUUID);
+    if (pRemoteService == nullptr) {
+        Serial.print("Failed to find our service UUID: ");
+        Serial.println(bmeServiceUUID.toString().c_str());
+        return (false);
+    }
+
+    // Obtain a reference to the characteristics in the service of the remote BLE server.
+    temperatureCharacteristic = pRemoteService->getCharacteristic(temperatureCharacteristicUUID);
+    humidityCharacteristic = pRemoteService->getCharacteristic(humidityCharacteristicUUID);
+
+    if (temperatureCharacteristic == nullptr || humidityCharacteristic == nullptr) {
+        Serial.print("Failed to find our characteristic UUID");
+        return false;
+    }
+    Serial.println(" - Found our characteristics");
+
+    //Assign callback functions for the Characteristics
+    temperatureCharacteristic->registerForNotify(temperatureNotifyCallback);
+    humidityCharacteristic->registerForNotify(humidityNotifyCallback);
+    return true;
+}
+
+//Callback function that gets called, when another device's advertisement has been received
+class MyAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
+    void onResult(BLEAdvertisedDevice advertisedDevice) {
+        if (advertisedDevice.getName() == bleServerName) { //Check if the name of the advertiser matches
+            advertisedDevice.getScan()->stop(); //Scan can be stopped, we found what we are looking for
+            pServerAddress = new BLEAddress(advertisedDevice.getAddress()); //Address of advertiser is the one we need
+            doConnect = true; //Set indicator, stating that we are ready to connect
+            Serial.println("Device found. Connecting!");
+        }
+    }
+};
+
+//When the BLE Server sends a new temperature reading with the notify property
+static void temperatureNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
+    uint8_t* pData, size_t length, bool isNotify) {
+    //store temperature value
+    temperatureChar = (char*)pData;
+    newTemperature = true;
+}
+
+//When the BLE Server sends a new humidity reading with the notify property
+static void humidityNotifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
+    uint8_t* pData, size_t length, bool isNotify) {
+    //store humidity value
+    humidityChar = (char*)pData;
+    newHumidity = true;
+    Serial.print(newHumidity);
+}
+
+//function that prints the latest sensor readings in the OLED display
+void printReadings() {
+
+    display.clearDisplay();
+    // display temperature
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("Temperature: ");
+    display.setTextSize(2);
+    display.setCursor(0, 10);
+    display.print(temperatureChar);
+    display.setTextSize(1);
+    display.cp437(true);
+    display.write(167);
+    display.setTextSize(2);
+    Serial.print("Temperature:");
+    Serial.print(temperatureChar);
+#ifdef temperatureCelsius
+    //Temperature Celsius
+    display.print("C");
+    Serial.print("C");
+#else
+    //Temperature Fahrenheit
+    display.print("F");
+    Serial.print("F");
+#endif
+
+    //display humidity 
+    display.setTextSize(1);
+    display.setCursor(0, 35);
+    display.print("Humidity: ");
+    display.setTextSize(2);
+    display.setCursor(0, 45);
+    display.print(humidityChar);
+    display.print("%");
+    display.display();
+    Serial.print(" Humidity:");
+    Serial.print(humidityChar);
+    Serial.println("%");
+}
+
+void setup() {
+    //OLED display setup
+    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
+        Serial.println(F("SSD1306 allocation failed"));
+        for (;;); // Don't proceed, loop forever
+    }
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE, 0);
+    display.setCursor(0, 25);
+    display.print("BLE Client");
+    display.display();
